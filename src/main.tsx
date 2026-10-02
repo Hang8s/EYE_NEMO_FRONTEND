@@ -5,10 +5,9 @@ import './style.css';
 type Chat = { id: string; title: string; chat_type: string; updated_at: string };
 type Attachment = { id: string; type: string; file_name?: string; mime_type?: string; available: boolean };
 type Message = { id: string; text?: string; caption?: string; message_type: string; sent_at: string; edited_at?: string; is_deleted: boolean; attachments: Attachment[] };
-// Temporary local development tunnel. Configure VITE_API_BASE_URL in Vercel for production.
-const base = import.meta.env.VITE_API_BASE_URL || 'https://eye-nemo-hang8s-20261002.loca.lt';
+const base = import.meta.env.VITE_API_BASE_URL || '';
 const headers = () => ({ 'X-Telegram-Init-Data': window.Telegram?.WebApp.initData || '' });
-async function api<T>(path: string): Promise<T> { const response = await fetch(`${base}${path}`, { headers: headers() }); if (!response.ok) throw new Error(response.status === 401 ? 'Відкрийте застосунок через Telegram.' : 'Не вдалося завантажити дані.'); return response.json() as Promise<T>; }
+async function api<T>(path: string): Promise<T> { if (!base) throw new Error('Адресу сервера ще не налаштовано. Додайте VITE_API_BASE_URL у GitHub Actions.'); const response = await fetch(`${base}${path}`, { headers: headers() }); if (!response.ok) throw new Error(response.status === 401 ? 'Відкрийте застосунок через Telegram.' : 'Не вдалося завантажити дані.'); return response.json() as Promise<T>; }
 function App() {
   const [chats, setChats] = useState<Chat[]>([]); const [active, setActive] = useState<Chat | null>(null); const [messages, setMessages] = useState<Message[]>([]); const [query, setQuery] = useState(''); const [error, setError] = useState('');
   useEffect(() => { window.Telegram?.WebApp.ready(); window.Telegram?.WebApp.expand(); api<{items: Chat[]}>('/mini-api/chats').then(x => setChats(x.items)).catch(x => setError(x.message)); }, []);
