@@ -6,7 +6,7 @@ type Chat = { id: string; title: string; chat_type: string; updated_at: string }
 type Attachment = { id: string; type: string; file_name?: string; mime_type?: string; available: boolean };
 type Message = { id: string; text?: string; caption?: string; message_type: string; sent_at: string; edited_at?: string; is_deleted: boolean; attachments: Attachment[] };
 // Temporary local development tunnel. Configure VITE_API_BASE_URL in Vercel for production.
-const base = import.meta.env.VITE_API_BASE_URL || 'https://icy-hairs-stick.loca.lt';
+const base = import.meta.env.VITE_API_BASE_URL || 'https://eye-nemo-hang8s-20261002.loca.lt';
 const headers = () => ({ 'X-Telegram-Init-Data': window.Telegram?.WebApp.initData || '' });
 async function api<T>(path: string): Promise<T> { const response = await fetch(`${base}${path}`, { headers: headers() }); if (!response.ok) throw new Error(response.status === 401 ? 'Відкрийте застосунок через Telegram.' : 'Не вдалося завантажити дані.'); return response.json() as Promise<T>; }
 function App() {
