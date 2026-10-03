@@ -13,12 +13,14 @@ const headers = () => ({ 'X-Telegram-Init-Data': window.Telegram?.WebApp.initDat
 const apiUrl = (path: string) => new URL(path, `${base}/`).toString();
 async function api<T>(path: string): Promise<T> { const response = await fetch(apiUrl(path), { headers: headers() }); if (!response.ok) throw new Error(response.status === 401 ? 'Відкрийте застосунок через Telegram.' : 'Не вдалося завантажити дані.'); return response.json() as Promise<T>; }
 
-function AttachmentView({ file }: { file: Attachment }) {
+function isImage(file: Attachment) { return file.mime_type?.startsWith('image/') ?? false; }
+
+function AttachmentView({ file, compact = false }: { file: Attachment; compact?: boolean }) {
   const [url, setUrl] = useState<string | null>(null); const [failed, setFailed] = useState(false);
   useEffect(() => { if (!file.available) return; const controller = new AbortController(); let objectUrl: string | null = null; void fetch(apiUrl(`/mini-api/media/${file.id}`), { headers: headers(), signal: controller.signal }).then(response => { if (!response.ok) throw new Error('Media unavailable'); return response.blob(); }).then(blob => { objectUrl = URL.createObjectURL(blob); setUrl(objectUrl); }).catch(error => { if (error.name !== 'AbortError') setFailed(true); }); return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); }; }, [file.available, file.id]);
   if (!file.available || failed) return <div className="attachment unavailable"><span>−</span>{file.file_name || file.type}<small>Файл недоступний</small></div>;
   if (!url) return <div className="attachment"><span>…</span>{file.file_name || file.type}<small>Завантажуємо файл</small></div>;
-  if (file.mime_type?.startsWith('image/')) return <a className="attachment" href={url} target="_blank" rel="noreferrer"><img style={{ display: 'block', maxWidth: '100%', maxHeight: 420, margin: 'auto', borderRadius: 8 }} src={url} alt={file.file_name || 'Фото'} /></a>;
+  if (isImage(file)) return <a className="attachment" href={url} target="_blank" rel="noreferrer" title="Відкрити фото повністю" style={compact ? { display: 'block', width: '100%', maxWidth: 180, padding: 0, background: 'transparent' } : undefined}><img style={{ display: 'block', width: compact ? '100%' : undefined, maxWidth: '100%', maxHeight: compact ? 130 : 420, margin: 'auto', borderRadius: compact ? 6 : 8, objectFit: compact ? 'cover' : 'contain' }} src={url} alt={file.file_name || 'Фото'} /></a>;
   return <a className="attachment" href={url} download={file.file_name}><span>↓</span>{file.file_name || file.type}<small>Відкрити файл</small></a>;
 }
 function formatDate(value: string) { return new Intl.DateTimeFormat('uk-UA', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); }
@@ -27,7 +29,11 @@ function formatDay(value: string) { return new Intl.DateTimeFormat('uk-UA', { we
 function dayKey(value: string) { const date = new Date(value); return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`; }
 function chatKind(type: string) { return type === 'private' ? 'Особистий чат' : type === 'group' ? 'Група' : type === 'channel' ? 'Канал' : 'Чат'; }
 function messageText(message: Pick<Message, 'text' | 'caption' | 'message_type' | 'is_deleted'>) { return message.text || message.caption || (message.is_deleted ? 'Повідомлення видалено' : `[${message.message_type}]`); }
-function ReplyContext({ message }: { message: ReplyMessage }) { return <aside className={`reply-context${message.is_outgoing ? ' outgoing' : ''}`}><span className="reply-author">{message.is_outgoing ? 'Ви' : message.sender_name}</span><p>{messageText(message)}</p>{message.attachments.length > 0 && <small>Вкладення: {message.attachments.map(file => file.file_name || file.type).join(', ')}</small>}</aside>; }
+function ReplyContext({ message }: { message: ReplyMessage }) {
+  const images = message.attachments.filter(isImage);
+  const otherAttachments = message.attachments.filter(file => !isImage(file));
+  return <aside className={`reply-context${message.is_outgoing ? ' outgoing' : ''}`}><span className="reply-author">{message.is_outgoing ? 'Ви' : message.sender_name}</span><p>{messageText(message)}</p>{images.map(file => <AttachmentView compact file={file} key={file.id} />)}{otherAttachments.length > 0 && <small>Вкладення: {otherAttachments.map(file => file.file_name || file.type).join(', ')}</small>}</aside>;
+}
 function Initial({ name }: { name: string }) { return <>{name.trim().charAt(0).toUpperCase() || '#'}</>; }
 
 function App() {
