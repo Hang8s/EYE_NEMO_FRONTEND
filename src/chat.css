@@ -1,0 +1,4 @@
+.message.outgoing{border-color:color-mix(in srgb,var(--tg-theme-button-color,#2481cc) 32%,transparent);background:color-mix(in srgb,var(--tg-theme-button-color,#2481cc) 8%,var(--tg-theme-secondary-bg-color,#fff))}
+.message-meta{align-items:center}.message-meta strong{color:var(--tg-theme-button-color,#2481cc);font-size:13px}.incoming .message-meta strong{color:var(--tg-theme-text-color,#18202c)}
+.reply-context{margin-top:10px;padding:8px 10px;border-left:3px solid var(--tg-theme-hint-color,#8793a5);border-radius:0 9px 9px 0;background:color-mix(in srgb,var(--tg-theme-hint-color,#8793a5) 9%,transparent)}
+.reply-context.outgoing{border-left-color:var(--tg-theme-button-color,#2481cc)}.reply-author{display:block;color:var(--tg-theme-button-color,#2481cc);font-size:12px;font-weight:750}.reply-context p{margin:3px 0 0;font-size:13px;line-height:1.4}.reply-context small{display:block;margin-top:5px;color:var(--tg-theme-hint-color,#718096);font-size:11px}
