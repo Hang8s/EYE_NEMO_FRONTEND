@@ -21,7 +21,7 @@ function AttachmentView({ file, compact = false }: { file: Attachment; compact?:
   if (!file.available || failed) return <div className="attachment unavailable"><span>−</span>{file.file_name || file.type}<small>Файл недоступний</small></div>;
   if (!url) return <div className="attachment"><span>…</span>{file.file_name || file.type}<small>Завантажуємо файл</small></div>;
   if (isImage(file)) return <a className="attachment" href={url} target="_blank" rel="noreferrer" title="Відкрити фото повністю" style={{ display: 'block', width: compact ? '100%' : undefined, maxWidth: compact ? 180 : undefined, padding: 0, background: 'transparent' }}><img style={{ display: 'block', width: compact ? '100%' : undefined, maxWidth: '100%', maxHeight: compact ? 130 : 420, margin: 'auto', borderRadius: compact ? 6 : 8, objectFit: compact ? 'cover' : 'contain' }} src={url} alt={file.file_name || 'Фото'} /></a>;
-  return <a className="attachment" href={url} download={file.file_name}><span>↓</span>{file.file_name || file.type}<small>Відкрити файл</small></a>;
+  return <a className="attachment" href={url} target="_blank" rel="noreferrer" title="Відкрити файл"><span>↗</span>{file.file_name || file.type}<small>Відкрити файл</small></a>;
 }
 function formatDate(value: string) { return new Intl.DateTimeFormat('uk-UA', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); }
 function formatTime(value: string) { return new Intl.DateTimeFormat('uk-UA', { hour: '2-digit', minute: '2-digit' }).format(new Date(value)); }
@@ -32,7 +32,7 @@ function messageText(message: Pick<Message, 'text' | 'caption' | 'message_type' 
 function ReplyContext({ message }: { message: ReplyMessage }) {
   const images = message.attachments.filter(isImage);
   const otherAttachments = message.attachments.filter(file => !isImage(file));
-  return <aside className={`reply-context${message.is_outgoing ? ' outgoing' : ''}`}><span className="reply-author">{message.is_outgoing ? 'Ви' : message.sender_name}</span><p>{messageText(message)}</p>{images.map(file => <AttachmentView compact file={file} key={file.id} />)}{otherAttachments.length > 0 && <small>Вкладення: {otherAttachments.map(file => file.file_name || file.type).join(', ')}</small>}</aside>;
+  return <aside className={`reply-context${message.is_outgoing ? ' outgoing' : ''}`}><span className="reply-author">{message.is_outgoing ? 'Ви' : message.sender_name}</span><p>{messageText(message)}</p>{images.map(file => <AttachmentView compact file={file} key={file.id} />)}{otherAttachments.map(file => <AttachmentView compact file={file} key={file.id} />)}</aside>;
 }
 function Initial({ name }: { name: string }) { return <>{name.trim().charAt(0).toUpperCase() || '#'}</>; }
 
