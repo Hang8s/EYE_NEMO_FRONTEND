@@ -2,9 +2,10 @@ import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from 'react
 import { createRoot } from 'react-dom/client';
 import './style.css';
 import './chat.css';
+import './reply-bookmark.css';
 
 type Chat = { id: string; title: string; chat_type: string; updated_at: string; last_message_at?: string | null };
-type Attachment = { id: string; type: string; file_name?: string; mime_type?: string; available: boolean };
+type Attachment = { id: string; type: string; file_name?: string; mime_type?: string; available: boolean; saved_by_reply: boolean };
 type Message = { id: string; text?: string; caption?: string; message_type: string; sent_at: string; edited_at?: string; is_deleted: boolean; is_outgoing: boolean; sender_name: string; attachments: Attachment[]; reply_to?: ReplyMessage | null };
 type ReplyMessage = Omit<Message, 'reply_to'>;
 
@@ -17,11 +18,12 @@ function isImage(file: Attachment) { return file.type === 'photo' || file.mime_t
 
 function AttachmentView({ file, compact = false, onImageLoad }: { file: Attachment; compact?: boolean; onImageLoad?: () => void }) {
   const [url, setUrl] = useState<string | null>(null); const [failed, setFailed] = useState(false);
+  const badge = file.saved_by_reply ? <b className="reply-saved-badge">Збережено reply</b> : null;
   useEffect(() => { if (!file.available) return; const controller = new AbortController(); let objectUrl: string | null = null; void fetch(apiUrl(`/mini-api/media/${file.id}`), { headers: headers(), signal: controller.signal }).then(response => { if (!response.ok) throw new Error('Media unavailable'); return response.blob(); }).then(blob => { objectUrl = URL.createObjectURL(blob); setUrl(objectUrl); }).catch(error => { if (error.name !== 'AbortError') setFailed(true); }); return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); }; }, [file.available, file.id]);
-  if (!file.available || failed) return <div className="attachment unavailable"><span>−</span>{file.file_name || file.type}<small>Файл недоступний</small></div>;
-  if (!url) return <div className="attachment"><span>…</span>{file.file_name || file.type}<small>Завантажуємо файл</small></div>;
-  if (isImage(file)) return <a className="attachment" href={url} target="_blank" rel="noreferrer" title="Відкрити фото повністю" style={{ display: 'block', width: compact ? '100%' : undefined, maxWidth: compact ? 180 : undefined, padding: 0, background: 'transparent' }}><img onLoad={onImageLoad} style={{ display: 'block', width: compact ? '100%' : undefined, maxWidth: '100%', maxHeight: compact ? 130 : 420, margin: 'auto', borderRadius: compact ? 6 : 8, objectFit: compact ? 'cover' : 'contain' }} src={url} alt={file.file_name || 'Фото'} /></a>;
-  return <a className="attachment" href={url} target="_blank" rel="noreferrer" title="Відкрити файл"><span>↗</span>{file.file_name || file.type}<small>Відкрити файл</small></a>;
+  if (!file.available || failed) return <div className="attachment unavailable"><span>−</span>{file.file_name || file.type}<small>Файл недоступний</small>{badge}</div>;
+  if (!url) return <div className="attachment"><span>…</span>{file.file_name || file.type}<small>Завантажуємо файл</small>{badge}</div>;
+  if (isImage(file)) return <a className="attachment attachment-image" href={url} target="_blank" rel="noreferrer" title="Відкрити фото повністю" style={{ display: 'block', width: compact ? '100%' : undefined, maxWidth: compact ? 180 : undefined, padding: 0, background: 'transparent' }}><img onLoad={onImageLoad} style={{ display: 'block', width: compact ? '100%' : undefined, maxWidth: '100%', maxHeight: compact ? 130 : 420, margin: 'auto', borderRadius: compact ? 6 : 8, objectFit: compact ? 'cover' : 'contain' }} src={url} alt={file.file_name || 'Фото'} />{badge}</a>;
+  return <a className="attachment" href={url} target="_blank" rel="noreferrer" title="Відкрити файл"><span>↗</span>{file.file_name || file.type}<small>Відкрити файл</small>{badge}</a>;
 }
 function formatDate(value: string) { return new Intl.DateTimeFormat('uk-UA', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); }
 function formatTime(value: string) { return new Intl.DateTimeFormat('uk-UA', { hour: '2-digit', minute: '2-digit' }).format(new Date(value)); }
