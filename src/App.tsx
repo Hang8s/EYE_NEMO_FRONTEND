@@ -1,7 +1,9 @@
-import { FormEvent, Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api, isAbort } from './api';
 import { clearMediaCache } from './media-cache';
-import { dayKey, formatDate, formatDay, Initial, MessageRow } from './MessageRow';
+import { formatDate, Initial } from './MessageRow';
+import { MessageHistory } from './MessageHistory';
+import type { HistoryAnchor, HistoryHandle } from './MessageHistory';
 import type { Chat, Message, Page } from './types';
 
 function chatKind(type: string) { return type === 'private' ? 'Особистий чат' : type === 'group' ? 'Група' : type === 'channel' ? 'Канал' : 'Чат'; }
@@ -22,7 +24,8 @@ export default function App() {
   const end = useRef<HTMLDivElement>(null);
   const messageRequest = useRef<AbortController | null>(null);
   const chatRequest = useRef<AbortController | null>(null);
-  const scrollAction = useRef<'latest' | { height: number; top: number } | null>(null);
+  const history = useRef<HistoryHandle>(null);
+  const scrollAction = useRef<'latest' | { height: number; top: number; anchor: HistoryAnchor | null } | null>(null);
   const followingLatest = useRef(true);
   const olderInFlight = useRef(false);
   const scrollToLatest = useCallback(() => {
@@ -33,6 +36,7 @@ export default function App() {
     if (!action) return;
     scrollAction.current = null;
     if (action === 'latest') scrollToLatest();
+    else if (action.anchor) history.current?.restore(action.anchor);
     else window.scrollTo(0, action.top + document.documentElement.scrollHeight - action.height);
   }, [messages, scrollToLatest]);
   useEffect(() => {
@@ -66,7 +70,7 @@ export default function App() {
     try {
       const page = await api<Page<Message>>(path, controller.signal);
       if (controller.signal.aborted) return;
-      scrollAction.current = older ? { height: document.documentElement.scrollHeight, top: window.scrollY } : chat.chat_type === 'search' ? null : 'latest';
+      scrollAction.current = older ? { height: document.documentElement.scrollHeight, top: window.scrollY, anchor: history.current?.capture() || null } : chat.chat_type === 'search' ? null : 'latest';
       if (older) followingLatest.current = false;
       setMessages(current => older ? unique([...page.items, ...current]) : page.items);
       setMessageCursor(page.next_cursor || null);
@@ -94,7 +98,7 @@ export default function App() {
     </section> : <section className="content chat-view">
       {isLoadingMessages ? <Loading label="Завантажуємо повідомлення…" /> : messages.length ? <>
         {messageCursor && active.chat_type !== 'search' && <button className="load-more" type="button" disabled={isLoadingOlder} onClick={() => void loadMessages(active, `/mini-api/chats/${active.id}/messages?cursor=${encodeURIComponent(messageCursor)}`, true)}>{isLoadingOlder ? 'Завантажуємо…' : 'Старіші повідомлення'}</button>}
-        <div className="message-stream">{messages.map((message, index) => <Fragment key={message.id}>{(index === 0 || dayKey(messages[index - 1].sent_at) !== dayKey(message.sent_at)) && <div className="day-divider">{formatDay(message.sent_at)}</div>}<MessageRow message={message} onImageLoad={scrollToLatest} /></Fragment>)}</div>
+        <MessageHistory messages={messages} onImageLoad={scrollToLatest} ref={history} />
         <div className="archive-composer" aria-label="Архів тільки для читання"><span className="lock">⌑</span><span>Архів повідомлень — лише перегляд</span><small>read-only</small></div><div ref={end} />
       </> : <Empty icon="⌕" title="Нічого не знайдено" text="У цьому чаті ще немає збережених повідомлень." />}
     </section>}

@@ -1,5 +1,22 @@
 import { apiUrl, headers } from './api';
 import type { Attachment } from './types';
+import { api } from './api';
+
+type MediaLink = { url: string; direct: boolean; valid_until: string | null };
+
+async function download(file: Attachment, signal: AbortSignal): Promise<Blob> {
+  // Resolve ownership once, then fetch private Blob bytes without forwarding Telegram auth.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const link = await api<MediaLink>(`/mini-api/media/${file.id}/url`, signal);
+    const response = await fetch(link.direct ? link.url : apiUrl(link.url), {
+      signal, ...(link.direct ? { credentials: 'omit' as const } : { headers: headers() }),
+    });
+    if (link.direct && (response.status === 401 || response.status === 403) && !attempt) continue;
+    if (!response.ok) throw new Error('Media unavailable');
+    return response.blob();
+  }
+  throw new Error('Media unavailable');
+}
 
 const MAX_BYTES = 32 * 1024 * 1024;
 const cache = new Map<string, { blob: Blob; expires: number }>();
@@ -38,8 +55,7 @@ export async function mediaBlob(file: Attachment, signal: AbortSignal): Promise<
   if (!entry) {
     const controller = new AbortController();
     const current = { controller, users: 0, promise: Promise.resolve(new Blob()) };
-    current.promise = fetch(apiUrl(`/mini-api/media/${file.id}`), { headers: headers(), signal: controller.signal })
-      .then(response => { if (!response.ok) throw new Error('Media unavailable'); return response.blob(); })
+    current.promise = download(file, controller.signal)
       .then(blob => {
         if (expires <= Date.now()) throw new Error('Media expired');
         if (!controller.signal.aborted && blob.size <= MAX_BYTES) {

@@ -43,7 +43,7 @@ it('loads older messages without duplicating records or jumping to the bottom', 
 });
 
 it('downloads documents only on click and releases object URLs', async () => {
-  const fetch = vi.fn().mockResolvedValue({ ok: true, blob: async () => new Blob(['document']) });
+  const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ url: 'https://store.private.blob.vercel-storage.com/file', direct: true, valid_until: null }), blob: async () => new Blob(['document']) });
   vi.stubGlobal('fetch', fetch);
   const create = vi.fn().mockReturnValue('blob:document');
   const revoke = vi.fn();
