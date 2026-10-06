@@ -15,6 +15,14 @@ Pushes to `main` deploy automatically through GitHub Actions. In the GitHub repo
 
 ## Optimized archive browsing
 
+Messages show the original followed by every archived edit, with an edit label,
+date/time and that version's media. Searches include historical text and captions;
+reply previews show the current target. Missing originals, incomplete legacy
+history and files with an unknown historical version are labeled explicitly.
+Expired media stays in the history as unavailable. Deploy backend migrations
+`0006_message_snapshots` and `0007_version_search_indexes` before this frontend.
+Older backend responses without `versions` still render a single message.
+
 Chats and older messages load in pages. Photos load near the viewport; documents,
 including image documents, load on click. Shared media downloads use an authenticated
 32-MiB in-memory cache and release object URLs on unmount or expiry. Cancelled chat
