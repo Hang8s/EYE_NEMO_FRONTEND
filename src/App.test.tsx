@@ -10,6 +10,48 @@ const response = (items: unknown[], next_cursor: string | null = null) => ({ ok:
 const chat = (id: string) => ({ id, title: `Chat ${id}`, chat_type: 'private', updated_at: '2026-01-01T00:00:00Z' });
 const message = (id: string) => ({ id, text: `Message ${id}`, sent_at: '2026-01-01T00:00:00Z', sender_name: 'Sender', message_type: 'text', is_deleted: false, is_outgoing: false, attachments: [] });
 
+it('retries the submitted search even when the input has changed', async () => {
+  const fetch = vi.fn((url: string) => Promise.resolve(url.includes('/search')
+    ? { ok: false, status: 503 }
+    : response([chat('a')])));
+  vi.stubGlobal('fetch', fetch);
+  render(<App />);
+  await screen.findByText('Chat a');
+  const input = screen.getByLabelText('Пошук повідомлень');
+  fireEvent.change(input, { target: { value: ' original & query ' } });
+  fireEvent.submit(input.closest('form')!);
+  await screen.findByText('Спробувати ще раз');
+  fireEvent.change(input, { target: { value: 'changed' } });
+  fetch.mockImplementation((url: string) => Promise.resolve(url.includes('/search')
+    ? response([message('found')])
+    : response([chat('a')])));
+  fireEvent.click(screen.getByText('Спробувати ще раз'));
+  await screen.findByText('Message found');
+  const searches = fetch.mock.calls.filter(([url]) => url.includes('/search'));
+  expect(searches).toHaveLength(2);
+  expect(searches[0][0]).toBe(searches[1][0]);
+  expect(new URL(searches[1][0]).searchParams.get('q')).toBe('original & query');
+  fireEvent.click(screen.getByLabelText('До списку чатів'));
+  expect((input as HTMLInputElement).value).toBe('');
+  expect(screen.getByText('Chat a')).toBeTruthy();
+});
+
+it('aborts an active message request on unmount', async () => {
+  let signal: AbortSignal | undefined;
+  vi.stubGlobal('fetch', vi.fn((url: string, options: RequestInit) => {
+    if (url.includes('/chats/a/')) {
+      signal = options.signal as AbortSignal;
+      return new Promise(() => {});
+    }
+    return Promise.resolve(response([chat('a')]));
+  }));
+  const view = render(<App />);
+  fireEvent.click(await screen.findByText('Chat a'));
+  expect(signal?.aborted).toBe(false);
+  view.unmount();
+  expect(signal?.aborted).toBe(true);
+});
+
 it('ignores a slow response after switching to another chat', async () => {
   vi.stubGlobal('requestAnimationFrame', (callback: () => void) => { callback(); return 1; });
   Element.prototype.scrollIntoView = vi.fn();
