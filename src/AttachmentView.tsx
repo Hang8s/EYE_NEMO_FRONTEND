@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { PhotoViewer } from './PhotoViewer';
+import { MediaViewer } from './MediaViewer';
 import { isAbort } from './api';
 import { mediaBlob } from './media-cache';
 import type { Attachment } from './types';
 
-export function isImage(file: Attachment) { return file.type === 'photo' || file.mime_type?.startsWith('image/') === true; }
+export function isImage(file: Attachment) { return file.type === 'photo' || file.mime_type?.startsWith('image/') === true || (file.type === 'animation' && file.file_name?.toLowerCase().endsWith('.gif') === true); }
+export function isVideo(file: Attachment) { return file.mime_type?.startsWith('video/') === true || file.type === 'video' || file.type === 'video_note' || (file.type === 'animation' && !isImage(file)); }
+
+export function mediaFileName(file: Attachment) {
+  if (file.file_name) return file.file_name;
+  if (isVideo(file)) {
+    const extension = ({ 'video/webm': 'webm', 'video/quicktime': 'mov', 'video/ogg': 'ogv' } as Record<string, string>)[file.mime_type || ''] || 'mp4';
+    return `${file.type === 'document' ? 'video' : file.type}.${extension}`;
+  }
+  return file.type === 'animation' ? 'animation.gif' : 'photo.jpg';
+}
 
 export function AttachmentView({ file, compact = false, onImageLoad }: { file: Attachment; compact?: boolean; onImageLoad?: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
@@ -15,7 +25,9 @@ export function AttachmentView({ file, compact = false, onImageLoad }: { file: A
   const closeViewer = useCallback(() => setViewerOpen(false), []);
   const element = useRef<HTMLDivElement>(null);
   const image = isImage(file);
-  const automatic = image && file.type !== 'document';
+  const video = isVideo(file);
+  const manualMedia = video || file.type === 'animation';
+  const automatic = image && !manualMedia && file.type !== 'document';
   useEffect(() => {
     if (!automatic || !file.available) return;
     if (!('IntersectionObserver' in window)) { setRequested(true); return; }
@@ -49,9 +61,10 @@ export function AttachmentView({ file, compact = false, onImageLoad }: { file: A
   const name = file.file_name || file.type;
   return <div ref={element}>
     {!file.available || failed || expired ? <div className="attachment unavailable"><span>−</span>{name}<small>{expired ? 'Строк зберігання завершено' : 'Файл недоступний'}</small>{badge}</div>
-      : !url ? <button className="attachment" type="button" onClick={() => setRequested(true)} disabled={requested}><span>{requested ? '…' : '↓'}</span>{name}<small>{requested ? 'Завантажуємо файл' : 'Завантажити файл'}</small>{badge}</button>
+      : manualMedia ? <button className="attachment" type="button" aria-label={video ? 'Відкрити відео повністю' : 'Відкрити анімацію повністю'} onClick={() => { if (requested && !url) return; setRequested(true); setViewerOpen(true); }} aria-disabled={requested && !url} aria-busy={requested && !url}><span>{requested && !url ? '…' : '▶'}</span>{name}<small>{requested && !url ? 'Завантажуємо файл' : video ? 'Переглянути відео' : 'Переглянути анімацію'}</small>{badge}</button>
+        : !url ? <button className="attachment" type="button" onClick={() => setRequested(true)} disabled={requested}><span>{requested ? '…' : '↓'}</span>{name}<small>{requested ? 'Завантажуємо файл' : 'Завантажити файл'}</small>{badge}</button>
         : image ? <button className="attachment attachment-image" type="button" onClick={() => setViewerOpen(true)} aria-label="Відкрити фото повністю"><img onLoad={onImageLoad} style={{ width: compact ? '100%' : undefined, maxWidth: compact ? 180 : '100%', maxHeight: compact ? 130 : 420, objectFit: compact ? 'cover' : 'contain' }} src={url} alt={file.file_name || 'Фото'} />{badge}</button>
           : <a className="attachment" href={url} download={file.file_name} target="_blank" rel="noreferrer"><span>↗</span>{name}<small>Відкрити файл</small>{badge}</a>}
-    {viewerOpen && url && image && file.available && !failed && !expired && <PhotoViewer url={url} fileName={file.file_name || 'photo.jpg'} onClose={closeViewer} />}
+    {viewerOpen && url && (image || video) && file.available && !failed && !expired && <MediaViewer url={url} fileName={mediaFileName(file)} video={video} onClose={closeViewer} />}
   </div>;
 }
