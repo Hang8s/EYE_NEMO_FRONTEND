@@ -9,7 +9,7 @@ const revision = (id: string, kind: MessageVersion['kind'], text: string): Messa
   id, kind, text, message_type: 'text', observed_at: '2026-10-06T10:00:00Z',
   edited_at: kind === 'edit' ? '2026-10-06T10:01:00Z' : null, attachments: [],
 });
-const message = (versions?: MessageVersion[]): Message => ({ id: 'message', text: 'latest', message_type: 'text',
+const message = (versions?: MessageVersion[]): Message => ({ id: 'message', chat_id: 'chat', telegram_message_id: 1, has_reply: false, text: 'latest', message_type: 'text',
   sent_at: '2026-10-06T10:00:00Z', sender_name: 'Sender', is_outgoing: false, is_deleted: false, attachments: [], versions });
 
 it('shows the original and all edits in sequence without repeating the latest text', () => {

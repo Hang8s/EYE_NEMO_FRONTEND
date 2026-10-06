@@ -16,7 +16,7 @@ it('renders a bounded window of a thousand variable-height messages', async () =
     const height = this.dataset.index ? 80 + Number(this.dataset.index) % 3 * 20 : 0;
     return { top: 0, bottom: height, left: 0, right: 700, width: 700, height, x: 0, y: 0, toJSON() {} };
   });
-  const messages: Message[] = Array.from({ length: 1000 }, (_, index) => ({ id: String(index), text: `Message ${index}`, sent_at: '2026-01-01T00:00:00Z', message_type: 'text', sender_name: 'Sender', is_outgoing: false, is_deleted: false, attachments: [] }));
+  const messages: Message[] = Array.from({ length: 1000 }, (_, index) => ({ id: String(index), chat_id: 'chat', telegram_message_id: index, has_reply: false, text: `Message ${index}`, sent_at: '2026-01-01T00:00:00Z', message_type: 'text', sender_name: 'Sender', is_outgoing: false, is_deleted: false, attachments: [] }));
   messages.forEach(message => {
     message.versions = [
       { id: `${message.id}-original`, kind: 'original', text: `Original ${message.id}`, observed_at: message.sent_at, attachments: [] },
@@ -39,7 +39,7 @@ it('restores the same message anchor when expanded version history changes its p
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({
     top, bottom: top + 220, left: 0, right: 700, width: 700, height: 220, x: 0, y: top, toJSON() {},
   }));
-  const message: Message = { id: 'anchor', text: 'latest', sent_at: '2026-01-01T00:00:00Z', message_type: 'text', sender_name: 'Sender', is_outgoing: false, is_deleted: false, attachments: [], versions: [
+  const message: Message = { id: 'anchor', chat_id: 'chat', telegram_message_id: 1, has_reply: false, text: 'latest', sent_at: '2026-01-01T00:00:00Z', message_type: 'text', sender_name: 'Sender', is_outgoing: false, is_deleted: false, attachments: [], versions: [
     { id: 'original', kind: 'original', text: 'first', observed_at: '2026-01-01T00:00:00Z', attachments: [] },
     { id: 'edit', kind: 'edit', text: 'latest', edited_at: '2026-01-01T00:01:00Z', observed_at: '2026-01-01T00:01:01Z', attachments: [] },
   ] };

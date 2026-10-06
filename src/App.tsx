@@ -4,7 +4,7 @@ import { clearMediaCache } from './media-cache';
 import { formatDate, Initial } from './MessageRow';
 import { MessageHistory } from './MessageHistory';
 import type { HistoryAnchor, HistoryHandle } from './MessageHistory';
-import type { Chat, Message, Page } from './types';
+import type { Chat, ChatPage, Message, MessagePage, SearchResults } from './types';
 
 function chatKind(type: string) { return type === 'private' ? 'Особистий чат' : type === 'group' ? 'Група' : type === 'channel' ? 'Канал' : 'Чат'; }
 function unique<T extends { id: string }>(items: T[]): T[] { return [...new Map(items.map(item => [item.id, item])).values()]; }
@@ -49,7 +49,7 @@ export default function App() {
     const controller = new AbortController(); chatRequest.current = controller;
     setError(''); setIsLoadingChats(true);
     try {
-      const page = await api<Page<Chat>>(`/mini-api/chats${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, controller.signal);
+      const page = await api<ChatPage>(`/mini-api/chats${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, controller.signal);
       if (controller.signal.aborted) return;
       setChats(current => cursor ? unique([...current, ...page.items]) : page.items);
       setChatCursor(page.next_cursor || null);
@@ -68,12 +68,12 @@ export default function App() {
     if (older) setIsLoadingOlder(true);
     else { setActive(chat); setMessages([]); setMessageCursor(null); setIsLoadingMessages(true); setIsLoadingOlder(false); followingLatest.current = true; }
     try {
-      const page = await api<Page<Message>>(path, controller.signal);
+      const page = await api<MessagePage | SearchResults>(path, controller.signal);
       if (controller.signal.aborted) return;
       scrollAction.current = older ? { height: document.documentElement.scrollHeight, top: window.scrollY, anchor: history.current?.capture() || null } : chat.chat_type === 'search' ? null : 'latest';
       if (older) followingLatest.current = false;
       setMessages(current => older ? unique([...page.items, ...current]) : page.items);
-      setMessageCursor(page.next_cursor || null);
+      setMessageCursor('next_cursor' in page ? page.next_cursor || null : null);
     } catch (cause) { if (!isAbort(cause) && !controller.signal.aborted) setError((cause as Error).message); }
     finally { if (!controller.signal.aborted) { setIsLoadingMessages(false); setIsLoadingOlder(false); olderInFlight.current = false; } }
   }

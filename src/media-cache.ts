@@ -1,8 +1,7 @@
 import { apiUrl, headers } from './api';
-import type { Attachment } from './types';
+import type { Attachment, MediaLink } from './types';
 import { api } from './api';
 
-type MediaLink = { url: string; direct: boolean; valid_until: string | null };
 
 async function download(file: Attachment, signal: AbortSignal): Promise<Blob> {
   // Resolve ownership once, then fetch private Blob bytes without forwarding Telegram auth.

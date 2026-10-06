@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run contracts:check && tsc -b && vite build",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run src",
+    "contracts:sync": "node scripts/api-contract.mjs sync",
+    "contracts:generate": "node scripts/api-contract.mjs generate",
+    "contracts:check": "node scripts/api-contract.mjs check",
+    "contracts:test": "node --test scripts/api-contract.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.13",
@@ -22,6 +26,7 @@
     "@vitejs/plugin-react": "^5.0.2",
     "eslint": "^9.35.0",
     "jsdom": "^30.1.2",
+    "openapi-typescript": "7.13.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.3",
     "vitest": "^3.2.4"
