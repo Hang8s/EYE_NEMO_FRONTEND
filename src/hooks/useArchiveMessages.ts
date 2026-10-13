@@ -4,11 +4,15 @@ import { unique } from '../services/archive';
 import type { Chat, Message, MessagePage, SearchResults } from '../types';
 import { useHistoryScroll } from './useHistoryScroll';
 
+export const MAX_MESSAGES = 500;
+
 export function useArchiveMessages(setError: (error: string) => void) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageCursor, setMessageCursor] = useState<string | null>(null);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [hasTrimmedNewer, setHasTrimmedNewer] = useState(false);
+  const visible = useRef<Message[]>([]);
   const messageRequest = useRef<AbortController | null>(null);
   const olderInFlight = useRef(false);
   const scroll = useHistoryScroll(messages);
@@ -27,6 +31,8 @@ export function useArchiveMessages(setError: (error: string) => void) {
     if (older) setIsLoadingOlder(true);
     else {
       setMessages([]);
+      visible.current = [];
+      setHasTrimmedNewer(false);
       setMessageCursor(null);
       setIsLoadingMessages(true);
       setIsLoadingOlder(false);
@@ -36,7 +42,11 @@ export function useArchiveMessages(setError: (error: string) => void) {
       const page = await request(controller.signal);
       if (controller.signal.aborted) return;
       scroll.prepareScroll(older, chat.chat_type === 'search');
-      setMessages(current => older ? unique([...page.items, ...current]) : page.items);
+      const combined = older ? unique([...page.items, ...visible.current]) : page.items;
+      const bounded = older ? combined.slice(0, MAX_MESSAGES) : combined.slice(-MAX_MESSAGES);
+      if (older && combined.length > MAX_MESSAGES) setHasTrimmedNewer(true);
+      visible.current = bounded;
+      setMessages(bounded);
       setMessageCursor('next_cursor' in page ? page.next_cursor || null : null);
     } catch (cause) {
       if (!isAbort(cause) && !controller.signal.aborted) setError((cause as Error).message);
@@ -53,9 +63,11 @@ export function useArchiveMessages(setError: (error: string) => void) {
     olderInFlight.current = false;
     scroll.resetScroll();
     setMessages([]);
+    visible.current = [];
+    setHasTrimmedNewer(false);
     setMessageCursor(null);
     setIsLoadingMessages(false);
     setIsLoadingOlder(false);
   }
-  return { messages, messageCursor, isLoadingMessages, isLoadingOlder, loadMessages, resetMessages, ...scroll };
+  return { messages, messageCursor, isLoadingMessages, isLoadingOlder, hasTrimmedNewer, loadMessages, resetMessages, ...scroll };
 }
