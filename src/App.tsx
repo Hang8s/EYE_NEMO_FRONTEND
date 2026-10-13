@@ -7,7 +7,7 @@ function chatKind(type: string) { return type === 'private' ? 'Особисти�
 export default function App() {
   const {
     chats, active, messages, chatCursor, messageCursor, query, setQuery, submittedQuery,
-    isLoadingChats, isLoadingMessages, isLoadingOlder, error, end, history,
+    isLoadingChats, isLoadingMessages, isLoadingOlder, hasTrimmedNewer, error, end, history,
     scrollToLatest, loadChats, openChat, search, returnHome, loadOlder, retry,
   } = useArchiveNavigation();
   const subtitle = active?.chat_type === 'search' ? `За запитом «${submittedQuery}»` : active ? chatKind(active.chat_type) : `${chats.length}${chatCursor ? '+' : ''} чатів в архіві`;
@@ -20,6 +20,7 @@ export default function App() {
       {isLoadingMessages ? <Loading label="Завантажуємо повідомлення…" /> : messages.length ? <>
         {messageCursor && active.chat_type !== 'search' && <button className="load-more" type="button" disabled={isLoadingOlder} onClick={() => void loadOlder()}>{isLoadingOlder ? 'Завантажуємо…' : 'Старіші повідомлення'}</button>}
         <MessageHistory messages={messages} onImageLoad={scrollToLatest} ref={history} />
+        {hasTrimmedNewer && <button className="load-more" type="button" onClick={() => void openChat(active)}>До останніх повідомлень</button>}
         <div className="archive-composer" aria-label="Архів тільки для читання"><span className="lock">⌑</span><span>Архів повідомлень — лише перегляд</span><small>read-only</small></div><div ref={end} />
       </> : <Empty icon="⌕" title="Нічого не знайдено" text="У цьому чаті ще немає збережених повідомлень." />}
     </section>}

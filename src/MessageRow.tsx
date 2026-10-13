@@ -1,4 +1,5 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
+import { VersionHistory } from './VersionHistory';
 import { AttachmentView } from './AttachmentView';
 import type { Message, MessageVersion, ReplyMessage } from './types';
 
@@ -26,7 +27,8 @@ function versionLabel(version: MessageVersion) {
 }
 export const MessageRow = memo(function MessageRow({ message, onImageLoad }: { message: Message; onImageLoad: () => void }) {
   const versions = message.versions || [];
-  const showHistory = versions.length > 0;
+  const showHistory = message.version_count == null && versions.length > 0;
+  const [historyOpen, setHistoryOpen] = useState(false);
   return <div id={`message-${message.id}`} className={`message-row ${message.is_outgoing ? 'outgoing' : 'incoming'}`}>
     <span className="message-avatar"><Initial name={message.is_outgoing ? 'Ви' : message.sender_name} /></span>
     <article className={`message${message.is_deleted ? ' deleted' : ''}`}>
@@ -40,6 +42,10 @@ export const MessageRow = memo(function MessageRow({ message, onImageLoad }: { m
           {version.attachments.map(file => <AttachmentView file={file} key={file.id} onImageLoad={onImageLoad} />)}
         </section>)}
       </div> : <><p>{messageText(message)}</p>{message.attachments.map(file => <AttachmentView file={file} key={file.id} onImageLoad={onImageLoad} />)}</>}
+      {!!message.version_count && <details onToggle={event => setHistoryOpen(event.currentTarget.open)}>
+        <summary>Історія: {message.version_count} версій</summary>
+        {historyOpen && <VersionHistory id={message.id} onImageLoad={onImageLoad} />}
+      </details>}
       {!!message.unversioned_attachments?.length && <section className="message-version unversioned-media"><span className="version-label">Медіа з невідомою версією</span>{message.unversioned_attachments.map(file => <AttachmentView file={file} key={file.id} onImageLoad={onImageLoad} />)}</section>}
       <footer className="message-footer">{!showHistory && message.edited_at && <span className="edited">змін.</span>}<time>{formatTime(message.sent_at)}</time>{message.is_outgoing && <span className="status">✓✓</span>}</footer>
       {message.is_deleted && <em>Видалено в Telegram</em>}

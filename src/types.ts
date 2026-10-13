@@ -4,6 +4,7 @@ import type { components } from './generated/api';
 export type Chat = components['schemas']['MiniChatResponse'];
 export type Attachment = components['schemas']['AttachmentResponse'];
 export type MessageVersion = components['schemas']['MessageVersionResponse'];
+export type VersionPage = components['schemas']['MessageVersionPage'];
 export type Message = components['schemas']['MiniMessageResponse'];
 export type ReplyMessage = components['schemas']['MiniReplyResponse'];
 export type ChatPage = components['schemas']['MiniChatPage'];
