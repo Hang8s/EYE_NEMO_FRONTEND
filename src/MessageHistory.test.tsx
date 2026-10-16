@@ -28,7 +28,8 @@ it('renders a bounded window of a thousand variable-height messages', async () =
     const count = view.container.querySelectorAll('.message-row').length;
     expect(count).toBeGreaterThan(0);
     expect(count).toBeLessThan(50);
-    expect(view.container.querySelectorAll('.message-version').length).toBe(count * 2);
+    expect(view.container.querySelectorAll('.message-version').length).toBe(0);
+    expect(view.container.querySelectorAll('summary').length).toBe(count);
   });
   expect(view.container.querySelector('[data-history-count]')?.getAttribute('data-history-count')).toBe('1000');
 });

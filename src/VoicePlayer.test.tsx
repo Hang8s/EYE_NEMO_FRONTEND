@@ -142,6 +142,9 @@ it('plays voice from a message version and reports loaded metadata to history', 
     is_outgoing: false, is_deleted: false, attachments: [],
     versions: [{ id: 'original', kind: 'original', message_type: 'voice', observed_at: '2026-10-06T10:00:00Z', attachments: [file] }],
   }} onImageLoad={onImageLoad} />);
+  const details = screen.getByText('Історія змін · 1').closest('details')!;
+  details.open = true;
+  fireEvent(details, new Event('toggle'));
   fireEvent.click(screen.getByRole('button', { name: 'Прослухати голосове' }));
   const audio = await screen.findByLabelText('Голосове повідомлення');
   expect(audio.closest('.message-version')).toBeTruthy();

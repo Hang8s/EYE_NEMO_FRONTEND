@@ -11,6 +11,8 @@ export function useArchiveNavigation() {
   const [active, setActive] = useState<Chat | null>(null);
   const [query, setQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const submittedFilters = useRef<Record<string, string>>({});
   const [scope, setScope] = useState<'chat' | 'all'>('all');
   const [searchChat, setSearchChat] = useState<Chat | null>(null);
   const submittedChat = useRef<string | undefined>(undefined);
@@ -30,7 +32,7 @@ export function useArchiveNavigation() {
   function remember() {
     if (!active) { homeTop.current = window.scrollY; return; }
     if (messages.isLoadingMessages || messages.isLoadingOlder || error) return;
-    const key = active.chat_type === 'search' ? `search:${submittedQuery}:${submittedChat.current || ''}` : active.id;
+    const key = active.chat_type === 'search' ? `search:${submittedQuery}:${submittedChat.current || ''}:${JSON.stringify(submittedFilters.current)}` : active.id;
     snapshots.current.delete(key);
     snapshots.current.set(key, { page: { items: messages.messages, next_cursor: messages.messageCursor }, anchor: messages.history.current?.capture() || null, top: window.scrollY, trimmed: messages.hasTrimmedNewer });
     if (snapshots.current.size > 8) snapshots.current.delete(snapshots.current.keys().next().value!);
@@ -40,22 +42,24 @@ export function useArchiveNavigation() {
     setActive(chat);
     currentTarget.current = target;
     setSearchChat(chat);
+    setScope('chat');
     setFocusedMessage(target?.around || null);
     const targeted = !!(target?.around || target?.at);
     const saved = target ? undefined : snapshots.current.get(chat.id);
     return messages.loadMessages(chat, signal => saved ? Promise.resolve(saved.page) : archive.messages(chat.id, null, signal, target), false,
       saved || (targeted ? { anchor: target?.around ? { id: target.around, top: 0, virtual: false } : null, top: 0, trimmed: true, date: target?.at } : undefined));
   }
-  function runSearch(value = query.trim(), chatId = scope === 'chat' ? searchChat?.id : undefined, save = true) {
-    if (!value) return;
+  function runSearch(value = query.trim(), chatId = scope === 'chat' ? searchChat?.id : undefined, save = true, selectedFilters = filters) {
+    if (!value && !Object.keys(selectedFilters).length) return;
     if (save) remember();
     setSubmittedQuery(value);
     submittedChat.current = chatId;
+    submittedFilters.current = selectedFilters;
     submittedContext.current = searchChat;
     setFocusedMessage(null);
     const chat = { id: 'search', title: 'Результати пошуку', chat_type: 'search', updated_at: '' };
     setActive(chat);
-    return messages.loadMessages(chat, signal => archive.search(value, signal, chatId));
+    return messages.loadMessages(chat, signal => archive.search(value, signal, chatId, selectedFilters));
   }
   async function openResult(message: Message) {
     const chat = chats.chats.find(chat => chat.id === message.chat_id) || { id: message.chat_id, title: message.chat_title || 'Чат', chat_type: 'private', updated_at: message.sent_at };
@@ -63,17 +67,22 @@ export function useArchiveNavigation() {
   }
   function clearSearch() {
     setQuery('');
+    setFilters({});
     setSubmittedQuery('');
+    submittedFilters.current = {};
     if (active?.chat_type === 'search' && searchChat) void openChat(searchChat);
     else if (active?.chat_type === 'search') returnHome();
   }
   function returnToSearch() {
     remember();
     const chat = { id: 'search', title: 'Результати пошуку', chat_type: 'search', updated_at: '' };
-    const saved = snapshots.current.get(`search:${submittedQuery}:${submittedChat.current || ''}`);
+    const saved = snapshots.current.get(`search:${submittedQuery}:${submittedChat.current || ''}:${JSON.stringify(submittedFilters.current)}`);
     setActive(chat);
     setSearchChat(submittedContext.current);
-    void messages.loadMessages(chat, signal => saved ? Promise.resolve(saved.page) : archive.search(submittedQuery, signal, submittedChat.current), false, saved);
+    setQuery(submittedQuery);
+    setScope(submittedChat.current ? 'chat' : 'all');
+    setFilters(submittedFilters.current);
+    void messages.loadMessages(chat, signal => saved ? Promise.resolve(saved.page) : archive.search(submittedQuery, signal, submittedChat.current, submittedFilters.current), false, saved);
   }
   function latest() {
     if (active && messages.hasTrimmedNewer) void openChat(active, {}, false);
@@ -91,7 +100,9 @@ export function useArchiveNavigation() {
     messages.resetMessages();
     setActive(null);
     setQuery('');
+    setFilters({});
     setSubmittedQuery('');
+    submittedFilters.current = {};
     setSearchChat(null);
     setScope('all');
     setError('');
@@ -103,8 +114,15 @@ export function useArchiveNavigation() {
   }
   function retry() {
     if (!active) void chats.loadChats();
-    else if (active.chat_type === 'search') void runSearch(submittedQuery, submittedChat.current, false);
+    else if (active.chat_type === 'search') void runSearch(submittedQuery, submittedChat.current, false, submittedFilters.current);
     else void openChat(active, currentTarget.current, false);
   }
-  return { ...chats, ...messages, active, query, setQuery, submittedQuery, error, openChat, search, returnHome, loadOlder, retry, scope, setScope, searchChat, clearSearch, openResult, latest, jumpToDate, focusedMessage, returnToSearch };
+  function toggleFilter(key: string, value: string) {
+    const next = { ...filters };
+    if (next[key] === value) delete next[key]; else next[key] = value;
+    setFilters(next);
+    if (query.trim() || Object.keys(next).length) void runSearch(query.trim(), scope === 'chat' ? searchChat?.id : undefined, true, next);
+    else clearSearch();
+  }
+  return { hasSearch: !!submittedQuery || Object.keys(submittedFilters.current).length > 0, filters, toggleFilter, ...chats, ...messages, active, query, setQuery, submittedQuery, error, openChat, search, returnHome, loadOlder, retry, scope, setScope, searchChat, clearSearch, openResult, latest, jumpToDate, focusedMessage, returnToSearch };
 }

@@ -21,7 +21,11 @@ it('loads history only after opening and replaces each page instead of accumulat
   fireEvent(details, new Event('toggle'));
   await screen.findByText('first history page');
   fireEvent.click(screen.getByText('Наступні версії'));
-  await screen.findByText('older page gone');
+  await waitFor(() => {
+    const text = view.container.querySelector('.message-version p')?.cloneNode(true) as HTMLElement | undefined;
+    text?.querySelectorAll('del').forEach(node => node.remove());
+    expect(text?.textContent).toBe('older page gone');
+  });
   expect(screen.queryByText('first history page')).toBeNull();
   expect(fetch).toHaveBeenCalledTimes(2);
   fireEvent.click(screen.getByText('На початок історії'));

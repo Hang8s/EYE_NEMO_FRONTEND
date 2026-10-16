@@ -176,6 +176,8 @@ it('jumps to a date and can load the latest messages again', async () => {
   render(<App />);
   fireEvent.click(await screen.findByText('Chat a'));
   await screen.findByText('Message new');
+  expect(screen.queryByLabelText('Перейти до дати')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Відкрити календар' }));
   fireEvent.change(screen.getByLabelText('Перейти до дати'), { target: { value: '2026-01-01' } });
   fireEvent.click(screen.getByRole('button', { name: 'Перейти' }));
   fireEvent.click(await screen.findByText('↓ До останніх'));
@@ -183,4 +185,33 @@ it('jumps to a date and can load the latest messages again', async () => {
   const requests = fetch.mock.calls.filter(([url]) => url.includes('/messages'));
   expect(new URL(requests[1][0]).searchParams.has('at')).toBe(true);
   expect(new URL(requests[2][0]).searchParams.has('at')).toBe(false);
+});
+
+it('defaults to chat scope and combines quick filters without a text query', async () => {
+  vi.stubGlobal('scrollTo', vi.fn());
+  Element.prototype.scrollIntoView = vi.fn();
+  const fetch = vi.fn((url: string) => Promise.resolve(url.includes('/search') ? response([]) : url.includes('/messages') ? response([message('one')]) : response([chat('a')])));
+  vi.stubGlobal('fetch', fetch);
+  render(<App />);
+  fireEvent.click(await screen.findByText('Chat a'));
+  expect(screen.getByText('У цьому чаті').getAttribute('aria-pressed')).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: 'Фото' }));
+  await screen.findByText('За вибраними фільтрами нічого не знайдено');
+  fireEvent.click(screen.getByRole('button', { name: 'Редаговані' }));
+  await waitFor(() => expect(fetch.mock.calls.filter(([url]) => url.includes('/search'))).toHaveLength(2));
+  const url = new URL(fetch.mock.calls.filter(([url]) => url.includes('/search'))[1][0]);
+  expect(url.searchParams.get('chat_id')).toBe('a');
+  expect(url.searchParams.get('content_type')).toBe('photo');
+  expect(url.searchParams.get('edited')).toBe('true');
+});
+
+it('filters chat names on the server separately from message text', async () => {
+  const fetch = vi.fn((url: string) => Promise.resolve(response(new URL(url).searchParams.get('q') === 'missing' ? [] : [chat('a')])));
+  vi.stubGlobal('fetch', fetch);
+  render(<App />);
+  await screen.findByText('Chat a');
+  fireEvent.change(screen.getByLabelText('Назва чату'), { target: { value: 'missing' } });
+  await screen.findByText('Чатів не знайдено');
+  await waitFor(() => expect(fetch.mock.calls.some(([url]) => url.includes('/chats?') && new URL(url).searchParams.get('q') === 'missing')).toBe(true));
+  expect(fetch.mock.calls.some(([url]) => url.includes('/search'))).toBe(false);
 });

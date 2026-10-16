@@ -4,6 +4,7 @@ import { archive, unique } from '../services/archive';
 import type { Chat } from '../types';
 
 export function useArchiveChats(setError: (error: string) => void) {
+  const [chatQuery, setChatQuery] = useState('');
   const [chats, setChats] = useState<Chat[]>([]);
   const [chatCursor, setChatCursor] = useState<string | null>(null);
   const [isLoadingChats, setIsLoadingChats] = useState(true);
@@ -15,7 +16,7 @@ export function useArchiveChats(setError: (error: string) => void) {
     setError('');
     setIsLoadingChats(true);
     try {
-      const page = await archive.chats(cursor, controller.signal);
+      const page = await archive.chats(cursor, controller.signal, chatQuery);
       if (controller.signal.aborted) return;
       setChats(current => cursor ? unique([...current, ...page.items]) : page.items);
       setChatCursor(page.next_cursor || null);
@@ -24,10 +25,14 @@ export function useArchiveChats(setError: (error: string) => void) {
     } finally {
       if (!controller.signal.aborted) setIsLoadingChats(false);
     }
-  }, [setError]);
+  }, [setError, chatQuery]);
   useEffect(() => {
-    void loadChats();
-    return () => chatRequest.current?.abort();
+    chatRequest.current?.abort();
+    setChats([]);
+    setChatCursor(null);
+    setIsLoadingChats(true);
+    const timer = setTimeout(() => void loadChats(), chatQuery ? 250 : 0);
+    return () => { clearTimeout(timer); chatRequest.current?.abort(); };
   }, [loadChats]);
-  return { chats, chatCursor, isLoadingChats, loadChats };
+  return { chatQuery, setChatQuery, chats, chatCursor, isLoadingChats, loadChats };
 }
