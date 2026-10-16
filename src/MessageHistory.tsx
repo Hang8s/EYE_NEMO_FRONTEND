@@ -5,13 +5,13 @@ import type { Message } from './types';
 
 export type HistoryAnchor = { id: string; top: number; virtual: boolean };
 export type HistoryHandle = { capture: () => HistoryAnchor | null; restore: (anchor: HistoryAnchor) => void };
-type Props = { messages: Message[]; onImageLoad: () => void };
+type Props = { messages: Message[]; onImageLoad: () => void; focusedMessage?: string | null };
 export const VIRTUAL_THRESHOLD = 100;
 const estimateHeight = () => 90;
 
 function contents(messages: Message[], index: number, onImageLoad: () => void) {
   const message = messages[index];
-  return <>{(index === 0 || dayKey(messages[index - 1].sent_at) !== dayKey(message.sent_at)) && <div className="day-divider">{formatDay(message.sent_at)}</div>}<MessageRow message={message} onImageLoad={onImageLoad} /></>;
+  return <>{(index === 0 || dayKey(messages[index - 1].sent_at) !== dayKey(message.sent_at)) && <div className="day-divider">{formatDay(message.sent_at)}</div>}<MessageRow message={message} onImageLoad={onImageLoad} grouped={index > 0 && messages[index - 1].is_outgoing === message.is_outgoing && (message.sender_id ? messages[index - 1].sender_id === message.sender_id : messages[index - 1].sender_name === message.sender_name) && dayKey(messages[index - 1].sent_at) === dayKey(message.sent_at) && new Date(message.sent_at).getTime() - new Date(messages[index - 1].sent_at).getTime() < 300000} /></>;
 }
 
 export const MessageHistory = forwardRef<HistoryHandle, Props>(function MessageHistory(props, ref) {
@@ -25,7 +25,7 @@ function capture(root: HTMLDivElement | null, virtual: boolean): HistoryAnchor |
   return node ? { id: node.dataset.messageId!, top: node.getBoundingClientRect().top, virtual } : null;
 }
 
-const PlainHistory = forwardRef<HistoryHandle, Props>(function PlainHistory({ messages, onImageLoad }, ref) {
+const PlainHistory = forwardRef<HistoryHandle, Props>(function PlainHistory({ messages, onImageLoad, focusedMessage }, ref) {
   const root = useRef<HTMLDivElement>(null);
   useImperativeHandle(ref, () => ({
     capture: () => capture(root.current, false),
@@ -35,11 +35,11 @@ const PlainHistory = forwardRef<HistoryHandle, Props>(function PlainHistory({ me
     },
   }), []);
   return <div className="message-stream" ref={root} data-history-count={messages.length}>
-    {messages.map((message, index) => <div className="history-item" data-message-id={message.id} key={message.id}>{contents(messages, index, onImageLoad)}</div>)}
+    {messages.map((message, index) => <div className={`history-item${focusedMessage === message.id ? " focused-message" : ""}`} data-message-id={message.id} key={message.id}>{contents(messages, index, onImageLoad)}</div>)}
   </div>;
 });
 
-const VirtualHistory = forwardRef<HistoryHandle, Props>(function VirtualHistory({ messages, onImageLoad }, ref) {
+const VirtualHistory = forwardRef<HistoryHandle, Props>(function VirtualHistory({ messages, onImageLoad, focusedMessage }, ref) {
   const root = useRef<HTMLDivElement>(null);
   const [margin, setMargin] = useState(0);
   const itemKey = useCallback((index: number) => messages[index].id, [messages]);
@@ -58,9 +58,9 @@ const VirtualHistory = forwardRef<HistoryHandle, Props>(function VirtualHistory(
   useImperativeHandle(ref, () => ({
     capture: () => capture(root.current, true),
     restore: anchor => {
-      // Existing virtual lists preserve keyed anchors internally. Handle only the
-      // transition from a short plain list to a long virtual list here.
-      if (anchor.virtual) return;
+      // Restore a visible anchor directly, or locate it in a remounted virtual list.
+      const node = root.current?.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(anchor.id)}"]`);
+      if (anchor.virtual && node) { window.scrollTo(0, window.scrollY + node.getBoundingClientRect().top - anchor.top); return; }
       const index = messages.findIndex(message => message.id === anchor.id);
       if (index < 0) return;
       virtual.scrollToIndex(index, { align: 'start' });
@@ -71,6 +71,6 @@ const VirtualHistory = forwardRef<HistoryHandle, Props>(function VirtualHistory(
     },
   }), [messages, virtual]);
   return <div className="virtual-history" ref={root} data-history-count={messages.length} style={{ height: virtual.getTotalSize(), position: 'relative', overflowAnchor: 'none' }}>
-    {virtual.getVirtualItems().map(item => <div key={item.key} data-index={item.index} data-message-id={messages[item.index].id} ref={virtual.measureElement} className="history-item" style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${item.start - margin}px)`, paddingBottom: 8 }}>{contents(messages, item.index, onImageLoad)}</div>)}
+    {virtual.getVirtualItems().map(item => <div key={item.key} data-index={item.index} data-message-id={messages[item.index].id} ref={virtual.measureElement} className={`history-item${focusedMessage === messages[item.index].id ? " focused-message" : ""}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${item.start - margin}px)`, paddingBottom: 8 }}>{contents(messages, item.index, onImageLoad)}</div>)}
   </div>;
 });

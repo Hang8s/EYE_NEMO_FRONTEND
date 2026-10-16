@@ -3,6 +3,7 @@ import { isAbort } from '../api';
 import { unique } from '../services/archive';
 import type { Chat, Message, MessagePage, SearchResults } from '../types';
 import { useHistoryScroll } from './useHistoryScroll';
+import type { HistoryAnchor } from '../MessageHistory';
 
 export const MAX_MESSAGES = 500;
 
@@ -21,6 +22,7 @@ export function useArchiveMessages(setError: (error: string) => void) {
     chat: Chat,
     request: (signal: AbortSignal) => Promise<MessagePage | SearchResults>,
     older = false,
+    restore?: { anchor: HistoryAnchor | null; top: number; trimmed: boolean; date?: string },
   ) {
     if (older && olderInFlight.current) return;
     messageRequest.current?.abort();
@@ -42,6 +44,12 @@ export function useArchiveMessages(setError: (error: string) => void) {
       const page = await request(controller.signal);
       if (controller.signal.aborted) return;
       scroll.prepareScroll(older, chat.chat_type === 'search');
+      if (restore) {
+        const target = restore.date ? page.items.find(item => new Date(item.sent_at).getTime() >= new Date(restore.date!).getTime()) || page.items.at(-1) : undefined;
+        const anchor = target ? { id: target.id, top: 0, virtual: false } : restore.anchor;
+        scroll.restoreScroll(anchor && anchor.top === 0 ? { ...anchor, top: (document.querySelector('.topbar')?.getBoundingClientRect().bottom || 0) + 16 } : anchor, restore.top);
+        setHasTrimmedNewer(restore.trimmed);
+      }
       const combined = older ? unique([...page.items, ...visible.current]) : page.items;
       const bounded = older ? combined.slice(0, MAX_MESSAGES) : combined.slice(-MAX_MESSAGES);
       if (older && combined.length > MAX_MESSAGES) setHasTrimmedNewer(true);

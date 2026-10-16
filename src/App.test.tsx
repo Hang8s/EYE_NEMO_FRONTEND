@@ -110,3 +110,77 @@ it('shows expired files without fetching their bytes', () => {
   expect(screen.getByText('Строк зберігання завершено')).toBeTruthy();
   expect(fetch).not.toHaveBeenCalled();
 });
+
+it('scopes search to the selected chat, highlights results and opens their context', async () => {
+  vi.stubGlobal('scrollTo', vi.fn());
+  Element.prototype.scrollIntoView = vi.fn();
+  const found = { ...message('found'), chat_id: 'a', chat_title: 'Chat a', text: 'A needle in history', match_text: 'A needle in history' };
+  const fetch = vi.fn((url: string) => Promise.resolve(url.includes('/search') ? response([found]) : url.includes('/messages') ? response([found]) : response([chat('a')])));
+  vi.stubGlobal('fetch', fetch);
+  const view = render(<App />);
+  fireEvent.click(await screen.findByText('Chat a'));
+  await screen.findByText('A needle in history');
+  fireEvent.click(screen.getByText('У цьому чаті'));
+  fireEvent.change(screen.getByLabelText('Пошук повідомлень'), { target: { value: 'needle' } });
+  fireEvent.click(screen.getByText('Знайти'));
+  fireEvent.click(await screen.findByText('Відкрити в розмові →'));
+  await waitFor(() => expect(view.container.querySelector('.focused-message')?.getAttribute('data-message-id')).toBe('found'));
+  const searchUrl = new URL(fetch.mock.calls.find(([url]) => url.includes('/search'))![0]);
+  expect(searchUrl.searchParams.get('chat_id')).toBe('a');
+  expect(fetch.mock.calls.some(([url]) => new URL(url).searchParams.get('around') === 'found')).toBe(true);
+  fireEvent.click(screen.getByText('До результатів пошуку'));
+  expect(await screen.findByText('Відкрити в розмові →')).toBeTruthy();
+  expect(view.container.querySelector('mark')?.textContent).toBe('needle');
+  fireEvent.click(screen.getByText('У всьому архіві'));
+  fireEvent.click(screen.getByText('Знайти'));
+  await waitFor(() => expect(fetch.mock.calls.filter(([url]) => url.includes('/search'))).toHaveLength(2));
+  const searches = fetch.mock.calls.filter(([url]) => url.includes('/search'));
+  expect(new URL(searches[1][0]).searchParams.has('chat_id')).toBe(false);
+});
+
+it('offers an explicit empty-search state and clears it', async () => {
+  vi.stubGlobal('scrollTo', vi.fn());
+  vi.stubGlobal('fetch', vi.fn((url: string) => Promise.resolve(url.includes('/search') ? response([]) : response([chat('a')]))));
+  render(<App />);
+  await screen.findByText('Chat a');
+  fireEvent.change(screen.getByLabelText('Пошук повідомлень'), { target: { value: 'missing' } });
+  fireEvent.click(screen.getByText('Знайти'));
+  expect(await screen.findByText('За запитом “missing” нічого не знайдено')).toBeTruthy();
+  fireEvent.click(screen.getByText('Очистити пошук'));
+  expect((screen.getByLabelText('Пошук повідомлень') as HTMLInputElement).value).toBe('');
+  expect(screen.getByText('Chat a')).toBeTruthy();
+});
+
+it('restores an older history window after returning to the chat list', async () => {
+  vi.stubGlobal('scrollTo', vi.fn());
+  Element.prototype.scrollIntoView = vi.fn();
+  const fetch = vi.fn((url: string) => Promise.resolve(url.includes('cursor=') ? response([message('old')]) : url.includes('/messages') ? response([message('new')], 'older') : response([chat('a')])));
+  vi.stubGlobal('fetch', fetch);
+  render(<App />);
+  fireEvent.click(await screen.findByText('Chat a'));
+  fireEvent.click(await screen.findByText('Старіші повідомлення'));
+  await screen.findByText('Message old');
+  const count = fetch.mock.calls.length;
+  fireEvent.click(screen.getByLabelText('До списку чатів'));
+  fireEvent.click(screen.getByText('Chat a'));
+  expect(await screen.findByText('Message old')).toBeTruthy();
+  expect(screen.getByText('Message new')).toBeTruthy();
+  expect(fetch.mock.calls).toHaveLength(count);
+});
+
+it('jumps to a date and can load the latest messages again', async () => {
+  vi.stubGlobal('scrollTo', vi.fn());
+  Element.prototype.scrollIntoView = vi.fn();
+  const fetch = vi.fn((url: string) => Promise.resolve(url.includes('/messages') ? response([message('new')]) : response([chat('a')])));
+  vi.stubGlobal('fetch', fetch);
+  render(<App />);
+  fireEvent.click(await screen.findByText('Chat a'));
+  await screen.findByText('Message new');
+  fireEvent.change(screen.getByLabelText('Перейти до дати'), { target: { value: '2026-01-01' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Перейти' }));
+  fireEvent.click(await screen.findByText('↓ До останніх'));
+  await waitFor(() => expect(fetch.mock.calls.filter(([url]) => url.includes('/messages'))).toHaveLength(3));
+  const requests = fetch.mock.calls.filter(([url]) => url.includes('/messages'));
+  expect(new URL(requests[1][0]).searchParams.has('at')).toBe(true);
+  expect(new URL(requests[2][0]).searchParams.has('at')).toBe(false);
+});

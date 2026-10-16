@@ -25,14 +25,14 @@ function versionLabel(version: MessageVersion) {
   if (version.kind === 'legacy') return `Збережена версія · отримано ${formatDate(version.observed_at)}`;
   return `Відредаговано · ${version.edited_at ? formatDate(version.edited_at) : 'час невідомий'}`;
 }
-export const MessageRow = memo(function MessageRow({ message, onImageLoad }: { message: Message; onImageLoad: () => void }) {
+export const MessageRow = memo(function MessageRow({ message, onImageLoad, grouped = false }: { message: Message; onImageLoad: () => void; grouped?: boolean }) {
   const versions = message.versions || [];
   const showHistory = message.version_count == null && versions.length > 0;
   const [historyOpen, setHistoryOpen] = useState(false);
-  return <div id={`message-${message.id}`} className={`message-row ${message.is_outgoing ? 'outgoing' : 'incoming'}`}>
+  return <div id={`message-${message.id}`} className={`message-row ${message.is_outgoing ? 'outgoing' : 'incoming'}${grouped ? ' grouped' : ''}`}>
     <span className="message-avatar"><Initial name={message.is_outgoing ? 'Ви' : message.sender_name} /></span>
     <article className={`message${message.is_deleted ? ' deleted' : ''}`}>
-      {!message.is_outgoing && <span className="message-sender">{message.sender_name}</span>}
+      {!message.is_outgoing && !grouped && <span className="message-sender">{message.sender_name}</span>}
       <ReplyContext message={message} />
       {showHistory ? <div className="message-versions">
         {!versions.some(version => version.kind === 'original') && <span className="missing-original">Оригінал не отримано</span>}
